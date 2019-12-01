@@ -56,11 +56,11 @@ import subprocess
 import sys
 
 
-FOLDERS = ['Snooze.Until Friday 18:00',
-           'Snooze.Until Monday 7:00',
-           'Snooze.Until 7:00',
-           'Snooze.Until 18:00',
-           'Snooze.For 1 Hour']
+FOLDERS = ['Snooze/Next Week',
+           'Snooze/This Weekend',
+           'Snooze/Tomorrow',
+           'Snooze/This Evening',
+           'Snooze/Later Today']
 
 
 def Debug(msg):
@@ -146,25 +146,25 @@ class Mail(object):
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     day_of_week = today.weekday()
     if self.folder == FOLDERS[4]:
-      snooze_until = now + datetime.timedelta(hours=1)
+      snooze_until = now + datetime.timedelta(hours=3)
     elif self.folder == FOLDERS[3]:
       snooze_until = today + datetime.timedelta(hours=18)
       if snooze_until < now:
         snooze_until += datetime.timedelta(days=1)
     elif self.folder == FOLDERS[2]:
-      snooze_until = today + datetime.timedelta(hours=7)
+      snooze_until = today + datetime.timedelta(hours=8)
       if snooze_until < now:
         snooze_until += datetime.timedelta(days=1)
     elif self.folder == FOLDERS[1]:
       snooze_days = 7 - day_of_week
       if snooze_days == 0:
         snooze_days = 7
-      snooze_until = today + datetime.timedelta(days=snooze_days, hours=7)
+      snooze_until = today + datetime.timedelta(days=snooze_days, hours=8)
     elif self.folder == FOLDERS[0]:
-      snooze_days = 4 - day_of_week
+      snooze_days = 5 - day_of_week
       if snooze_days < 1:
         snooze_days += 7
-      snooze_until = today + datetime.timedelta(days=snooze_days, hours=18)
+      snooze_until = today + datetime.timedelta(days=snooze_days, hours=8)
     else:
       return None
     unix_time = UnixTime(snooze_until)
