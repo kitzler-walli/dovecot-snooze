@@ -41,12 +41,12 @@ to match your user's mailbox tree.
 
 To subscribe a new user:
 $ user=maryjane
-doveadm mailbox create -s -u $user 'Snooze'
-doveadm mailbox create -s -u $user 'Snooze.Until Friday 18:00'
-doveadm mailbox create -s -u $user 'Snooze.Until Monday 7:00'
-doveadm mailbox create -s -u $user 'Snooze.Until 7:00'
-doveadm mailbox create -s -u $user 'Snooze.Until 18:00'
-doveadm mailbox create -s -u $user 'Snooze.For 1 Hour'
+sudo doveadm mailbox create -s -u $user 'Snooze'
+sudo doveadm mailbox create -s -u $user 'Snooze.Next Week'
+sudo doveadm mailbox create -s -u $user 'Snooze.This Weekend'
+sudo doveadm mailbox create -s -u $user 'Snooze.Tomorrow'
+sudo doveadm mailbox create -s -u $user 'Snooze.This Evening'
+sudo doveadm mailbox create -s -u $user 'Snooze.Later Today'
 """
 
 import argparse
@@ -56,11 +56,11 @@ import subprocess
 import sys
 
 
-FOLDERS = ['Snooze/Next Week',
-           'Snooze/This Weekend',
-           'Snooze/Tomorrow',
-           'Snooze/This Evening',
-           'Snooze/Later Today']
+FOLDERS = ['Snooze.Next Week',
+           'Snooze.This Weekend',
+           'Snooze.Tomorrow',
+           'Snooze.This Evening',
+           'Snooze.Later Today']
 
 
 def Debug(msg):

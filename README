@@ -32,10 +32,10 @@ to match your user's mailbox tree.
 to subscribe a new user:
 $ user=maryjane
 doveadm mailbox create -s -u $user 'Snooze'
-doveadm mailbox create -s -u $user 'Snooze.Until Friday 18:00'
-doveadm mailbox create -s -u $user 'Snooze.Until Monday 7:00'
-doveadm mailbox create -s -u $user 'Snooze.Until 7:00'
-doveadm mailbox create -s -u $user 'Snooze.Until 18:00'
-doveadm mailbox create -s -u $user 'Snooze.For 1 Hour'
+doveadm mailbox create -s -u $user 'Snooze.Next Week'
+doveadm mailbox create -s -u $user 'Snooze.This Weekend'
+doveadm mailbox create -s -u $user 'Snooze.Tomorrow'
+doveadm mailbox create -s -u $user 'Snooze.This Evening'
+doveadm mailbox create -s -u $user 'Snooze.Later Today'
 
 more documentation on http://www.wogri.com/scripts/dovecot-snooze/
