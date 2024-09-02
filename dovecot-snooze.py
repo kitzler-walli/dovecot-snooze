@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # wogri@google.com
 
 # Copyright 2014 Google Inc. All Rights Reserved.
@@ -47,6 +47,8 @@ sudo doveadm mailbox create -s -u $user 'Snooze.This Weekend'
 sudo doveadm mailbox create -s -u $user 'Snooze.Tomorrow'
 sudo doveadm mailbox create -s -u $user 'Snooze.This Evening'
 sudo doveadm mailbox create -s -u $user 'Snooze.Later Today'
+sudo doveadm mailbox create -s -u $user 'Snooze.Two Days'
+sudo doveadm mailbox create -s -u $user 'Snooze.Three Days'
 """
 
 import argparse
@@ -55,122 +57,134 @@ import re
 import subprocess
 import sys
 
-
-FOLDERS = ['Snooze.Next Week',
-           'Snooze.This Weekend',
+FOLDERS = ['Snooze.This Weekend',
+           'Snooze.Next Week',
            'Snooze.Tomorrow',
            'Snooze.This Evening',
-           'Snooze.Later Today']
+           'Snooze.Later Today',
+           'Snooze.Two Days',
+           'Snooze.Three Days',
+           'Snooze.Two Weeks']
 
 
 def Debug(msg):
-  if args.debug:
-    sys.stdout.write(msg + '\n')
+    if args.debug:
+        sys.stdout.write(msg + '\n')
 
 
 def Error(msg):
-  sys.stderr.write(msg + '\n')
+    sys.stderr.write(msg + '\n')
 
 
 def UnixTime(mytime):
-  epoch = datetime.datetime.fromtimestamp(0)
-  return int((mytime - epoch).total_seconds())
+    epoch = datetime.datetime.fromtimestamp(0)
+    return int((mytime - epoch).total_seconds())
 
 
 class Mail(object):
-  """The class that handles snoozing and un-snoozing for a single e-mail."""
+    """The class that handles snoozing and un-snoozing for a single e-mail."""
 
-  def __init__(self, uid, myfolder):
-    self.uid = uid
-    self.labels = []
-    self.folder = myfolder
+    def __init__(self, uid, myfolder):
+        self.uid = uid
+        self.labels = []
+        self.folder = myfolder
 
-  def CheckRelease(self):
-    """Check if a mail is ready for release, then move it back to the inbox."""
-    for label in self.labels:
-      result = re.search('MoveAt(.*)', label, re.IGNORECASE)
-      if result:
-        timestamp = result.group(1)
-        if int(timestamp) < UnixTime(datetime.datetime.now()):
-          self.MoveBackToInbox(timestamp)
+    def CheckRelease(self):
+        """Check if a mail is ready for release, then move it back to the inbox."""
+        for label in self.labels:
+            result = re.search('MoveAt(.*)', label, re.IGNORECASE)
+            if result:
+                timestamp = result.group(1)
+                if int(timestamp) < UnixTime(datetime.datetime.now()):
+                    self.MoveBackToInbox(timestamp)
+                else:
+                    Debug('moving {} at {}'.format(self.uid, timestamp))
+
+    def MoveBackToInbox(self, timestamp):
+        """Moves mail back to the inbox. Removes labels and sets it unread."""
+
+        Debug('moving {} back to inbox!'.format(self.uid))
+        cmd = [args.doveadm, 'flags', 'remove', '-u', user,
+               '\\Seen MoveAt{}'.format(timestamp), 'mailbox', self.folder, 'uid',
+               self.uid]
+        if 0 != subprocess.call(cmd):
+            Error('flags remove before move failed!')
+            Error(' '.join(cmd))
+        # move back to inbox:
+        cmd = [args.doveadm, 'move', '-u', user, 'INBOX', 'mailbox', self.folder,
+               'uid', self.uid]
+        if 0 != subprocess.call(cmd):
+            Error('move back to inbox failed!')
+            Error(' '.join(cmd))
+
+    def SetSnooze(self):
+        """Sets a label on a mail with a unix timestamp on how long to snooze."""
+
+        newflag = self.FindSnooze()
+        if not newflag or newflag in self.labels:
+            return None
+        if 0 != subprocess.call([args.doveadm,
+                                 'flags',
+                                 'add',
+                                 '-u',
+                                 user,
+                                 newflag,
+                                 'mailbox',
+                                 self.folder,
+                                 'uid',
+                                 self.uid]):
+            Error('mail move failed!')
+
+    def FindSnooze(self):
+        """Finds out how long to snooze a mail for.
+
+        Returns: unix time when to un-snooze.
+        """
+        # find out if the Mail has been marked to move already
+        for label in self.labels:
+            if re.search('MoveAt(.*)', label, re.IGNORECASE):
+                return None
+        snooze_until = None
+        now = datetime.datetime.now()
+        Debug('now is {}'.format(UnixTime(now)))
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_of_week = today.weekday()
+        if self.folder == FOLDERS[4]:
+            snooze_until = now + datetime.timedelta(hours=3)
+        elif self.folder == FOLDERS[3]:
+            snooze_until = today + datetime.timedelta(hours=18)
+            if snooze_until < now:
+                snooze_until += datetime.timedelta(days=1)
+        elif self.folder == FOLDERS[2]:
+            snooze_until = today + datetime.timedelta(hours=8)
+            if snooze_until < now:
+                snooze_until += datetime.timedelta(days=1)
+        elif self.folder == FOLDERS[1]:
+            snooze_days = 7 - day_of_week
+            if snooze_days == 0:
+                snooze_days = 7
+            snooze_until = today + datetime.timedelta(days=snooze_days, hours=8)
+        elif self.folder == FOLDERS[0]:
+            snooze_days = 5 - day_of_week
+            if snooze_days < 1:
+                snooze_days += 7
+            snooze_until = today + datetime.timedelta(days=snooze_days, hours=8)
+        elif self.folder == FOLDERS[5]:
+            snooze_until = today + datetime.timedelta(days=2, hours=8)
+        elif self.folder == FOLDERS[6]:
+            snooze_until = today + datetime.timedelta(days=3, hours=8)
+        elif self.folder == FOLDERS[7]:
+            snooze_days = 14 - day_of_week
+            if snooze_days == 7:
+                snooze_days = 14
+            snooze_until = today + datetime.timedelta(days=snooze_days, hours=8)
         else:
-          Debug('moving %s at %s' % (self.uid, timestamp))
+            return None
+        unix_time = UnixTime(snooze_until)
+        Debug('snoozing {} until {}, this is at {}'.format(self.uid, snooze_until,
+                                                          unix_time))
+        return 'MoveAt{}'.format(unix_time)
 
-  def MoveBackToInbox(self, timestamp):
-    """Moves mail back to the inbox. Removes labels and sets it unread."""
-
-    Debug('moving %s back to inbox!' % self.uid)
-    cmd = [args.doveadm, 'flags', 'remove', '-u', user,
-           '\Seen MoveAt%s' % timestamp, 'mailbox', self.folder, 'uid',
-           self.uid]
-    if 0 != subprocess.call(cmd):
-      Error('flags remove before move failed!')
-      Error(' '.join(cmd))
-    # move back to inbox:
-    cmd = [args.doveadm, 'move', '-u', user, 'INBOX', 'mailbox', self.folder,
-           'uid', self.uid]
-    if 0 != subprocess.call(cmd):
-      Error('move back to inbox failed!')
-      Error(' '.join(cmd))
-
-  def SetSnooze(self):
-    """Sets a label on a mail with a unix timestamp on how long to snooze."""
-
-    newflag = self.FindSnooze()
-    if not newflag or newflag in self.labels:
-      return None
-    if 0 != subprocess.call([args.doveadm,
-                             'flags',
-                             'add',
-                             '-u',
-                             user,
-                             newflag,
-                             'mailbox',
-                             self.folder,
-                             'uid',
-                             self.uid]):
-      Error('mail move failed!')
-
-  def FindSnooze(self):
-    """Finds out how long to snooze a mail for.
-
-    Returns: unix time when to un-snooze.
-    """
-    # find out if the Mail has been marked to move already
-    for label in self.labels:
-      if re.search('MoveAt(.*)', label, re.IGNORECASE):
-        return None
-    snooze_until = None
-    now = datetime.datetime.now()
-    Debug('now is %d' % UnixTime(now))
-    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    day_of_week = today.weekday()
-    if self.folder == FOLDERS[4]:
-      snooze_until = now + datetime.timedelta(hours=3)
-    elif self.folder == FOLDERS[3]:
-      snooze_until = today + datetime.timedelta(hours=18)
-      if snooze_until < now:
-        snooze_until += datetime.timedelta(days=1)
-    elif self.folder == FOLDERS[2]:
-      snooze_until = today + datetime.timedelta(hours=8)
-      if snooze_until < now:
-        snooze_until += datetime.timedelta(days=1)
-    elif self.folder == FOLDERS[1]:
-      snooze_days = 7 - day_of_week
-      if snooze_days == 0:
-        snooze_days = 7
-      snooze_until = today + datetime.timedelta(days=snooze_days, hours=8)
-    elif self.folder == FOLDERS[0]:
-      snooze_days = 5 - day_of_week
-      if snooze_days < 1:
-        snooze_days += 7
-      snooze_until = today + datetime.timedelta(days=snooze_days, hours=8)
-    else:
-      return None
-    unix_time = UnixTime(snooze_until)
-    Debug('snoozing %s until %s, this is at %d' % (self.uid, snooze_until,
-                                                   unix_time))
-    return 'MoveAt%d' % unix_time
 
 parser = argparse.ArgumentParser(description=(
     'Marks snoozed mails with a timestamp and moves it back to the inbox. Only '
@@ -188,33 +202,33 @@ parser.add_argument('users', nargs=argparse.REMAINDER)
 args = parser.parse_args()
 
 if not args.users:
-  Error('The last argument of this program must be one or more users '
-        '(separated by spaces)')
-  exit(1)
+    Error('The last argument of this program must be one or more users '
+          '(separated by spaces)')
+    exit(1)
 
 for user in args.users:
-  for folder in FOLDERS:
-    try:
-      mails = []
-      current_mail = None
-      cmd = [args.doveadm, 'fetch', '-u', user, 'uid flags', 'mailbox', folder,
-             'UNDELETED']
-      Debug(' '.join(cmd))
-      meta = subprocess.check_output(cmd)
-      lines = meta.split('\n')
-      for line in lines:
-        result = re.search('uid: (.*)', line, re.IGNORECASE)
-        if result:
-          if current_mail:
-            mails.append(current_mail)
-          current_mail = Mail(result.group(1), folder)
-        result = re.search('flags: (.*)', line, re.IGNORECASE)
-        if result:
-          current_mail.labels = result.group(1).split(' ')
-      if current_mail:
-        mails.append(current_mail)
-      for mail in mails:
-        mail.SetSnooze()
-        mail.CheckRelease()
-    except:
-      Error('unexpected Error!')
+    for folder in FOLDERS:
+        try:
+            mails = []
+            current_mail = None
+            cmd = [args.doveadm, 'fetch', '-u', user, 'uid flags', 'mailbox', folder,
+                   'UNDELETED']
+            Debug(' '.join(cmd))
+            meta = subprocess.check_output(cmd).decode('utf-8')
+            lines = meta.split('\n')
+            for line in lines:
+                result = re.search('uid: (.*)', line, re.IGNORECASE)
+                if result:
+                    if current_mail:
+                        mails.append(current_mail)
+                    current_mail = Mail(result.group(1), folder)
+                result = re.search('flags: (.*)', line, re.IGNORECASE)
+                if result:
+                    current_mail.labels = result.group(1).split(' ')
+            if current_mail:
+                mails.append(current_mail)
+            for mail in mails:
+                mail.SetSnooze()
+                mail.CheckRelease()
+        except Exception as e:
+            Error('unexpected Error: {}'.format(str(e)))
